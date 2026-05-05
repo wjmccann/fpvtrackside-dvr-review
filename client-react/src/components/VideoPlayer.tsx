@@ -27,32 +27,39 @@ export default function VideoPlayer({ videoData, pilotId, bounds, onRegister, on
     return () => onUnregister(pilotId);
   }, [pilotId, videoData, onRegister, onUnregister]);
 
-  const wrapperStyle: React.CSSProperties = {};
-  const style: React.CSSProperties = {};
   if (bounds && (bounds.Width < 1 || bounds.Height < 1)) {
     const scaleX = 1 / bounds.Width;
     const scaleY = 1 / bounds.Height;
-    const translateX = -bounds.X * scaleX * 100;
-    const translateY = -bounds.Y * scaleY * 100;
-    wrapperStyle.overflow = 'hidden';
-    style.width = `${scaleX * 100}%`;
-    style.height = `${scaleY * 100}%`;
-    style.objectFit = 'cover';
-    style.marginLeft = `${translateX}%`;
-    style.marginTop = `${translateY}%`;
+    // Transform origin at the center of the desired crop region
+    const originX = (bounds.X + bounds.Width / 2) * 100;
+    const originY = (bounds.Y + bounds.Height / 2) * 100;
+
+    return (
+      <div className="w-full h-full overflow-hidden cursor-pointer" onClick={onClickVideo}>
+        <video
+          ref={videoRef}
+          src={videoData.url}
+          muted
+          preload="metadata"
+          className="w-full h-full"
+          style={{
+            objectFit: 'fill',
+            transformOrigin: `${originX}% ${originY}%`,
+            transform: `scale(${scaleX}, ${scaleY})`,
+          }}
+        />
+      </div>
+    );
   }
 
   return (
-    <div className="w-full h-full" style={wrapperStyle}>
-      <video
-        ref={videoRef}
-        src={videoData.url}
-        muted
-        preload="metadata"
-        className={`${bounds && bounds.Width < 1 ? '' : 'w-full h-full object-contain'} cursor-pointer`}
-        style={style}
-        onClick={onClickVideo}
-      />
-    </div>
+    <video
+      ref={videoRef}
+      src={videoData.url}
+      muted
+      preload="metadata"
+      className="w-full h-full object-contain cursor-pointer"
+      onClick={onClickVideo}
+    />
   );
 }

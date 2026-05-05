@@ -5,6 +5,7 @@ import type { Race, Pilot, Round, Event, Detection } from '../api';
 import { useVideoSync } from '../hooks/useVideoSync';
 import type { VideoData } from '../hooks/useVideoSync';
 import VideoPlayer from '../components/VideoPlayer';
+import VideoCacheButton from '../components/VideoCacheButton';
 import SeekBar from '../components/SeekBar';
 import LapTable from '../components/LapTable';
 
@@ -43,7 +44,8 @@ export default function RaceReview() {
       api.getRounds(eventId),
       api.getVideos(eventId, raceId),
       api.getVideoConfig().catch(() => []),
-    ]).then(([r, e, p, rds, v, vc]) => {
+      api.getSettings().catch(() => ({ activeVideoConfig: 0 })),
+    ]).then(([r, e, p, rds, v, vc, s]) => {
       setRace(r);
       setEvent(e);
       setPilots(p);
@@ -52,7 +54,8 @@ export default function RaceReview() {
         ...vf,
         url: `/api/video/${eventId}/${raceId}/${vf.filename}`,
       })));
-      setVideoConfig(vc);
+      const activeIdx = (s as any).activeVideoConfig || 0;
+      setVideoConfig(vc.length > 0 ? [vc[activeIdx] || vc[0]] : []);
     });
   }, [eventId, raceId]);
 
@@ -229,6 +232,21 @@ export default function RaceReview() {
     return `${neg ? '-' : ''}${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(millis).padStart(3, '0')}`;
   };
 
+  // Map channel GUIDs to VideoSettings bounds via display names
+  // Event.Channels[i] (GUID) corresponds to Event.ChannelDisplayNames[i] (e.g. "R1")
+  // VideoSettings uses full names like "Raceband 1"
+  const channelGuidToName: Record<string, string> = {};
+  const eventChannels = event.Channels || [];
+  const eventDisplayNames = event.ChannelDisplayNames || [];
+  const bandPrefixes: Record<string, string> = { R: 'Raceband', F: 'Fatshark', E: 'Band E', B: 'Band B', A: 'Band A' };
+  for (let i = 0; i < eventChannels.length; i++) {
+    const display = eventDisplayNames[i] || '';
+    const bandChar = display.replace(/[0-9]/g, '');
+    const num = display.replace(/[^0-9]/g, '');
+    const fullName = `${bandPrefixes[bandChar] || bandChar} ${num}`;
+    channelGuidToName[eventChannels[i]] = fullName;
+  }
+
   const channelBoundsMap: Record<string, { X: number; Y: number; Width: number; Height: number }> = {};
   for (const vc of videoConfig) {
     for (const b of vc.bounds || []) {
@@ -255,7 +273,8 @@ export default function RaceReview() {
         {pilotChannels.map((pc) => {
           const pilot = pilots.find(p => p.ID === pc.Pilot);
           const videoData = videos.length > 0 ? videos[0] : null;
-          const pilotBounds = channelBoundsMap[pc.Channel] || null;
+          const channelName = channelGuidToName[pc.Channel] || pc.Channel;
+          const pilotBounds = channelBoundsMap[channelName] || null;
           const color = pilotColors[pc.Pilot];
           const isFocused = focusedPilotId === pc.Pilot;
           const isDimmed = focusedPilotId !== null && !isFocused;
@@ -275,7 +294,7 @@ export default function RaceReview() {
                 }}
                 title={isFocused ? 'Click to show all pilots (Esc)' : 'Click to enlarge'}
               >
-                {pilot?.Name || 'Unknown'} {isFocused ? '⤡' : '⤢'}
+                {pilot?.Name || 'Unknown'} [{channelName}] {isFocused ? '⤡' : '⤢'}
               </div>
               <div className={`${isFocused ? 'aspect-[16/7]' : 'aspect-video'} bg-bg-secondary transition-all`}>
                 {videoData ? (
@@ -319,6 +338,7 @@ export default function RaceReview() {
         <span className="text-xs sm:text-sm font-mono text-text-secondary ml-auto">
           {formatTimeDisplay(elapsed)}
         </span>
+        <VideoCacheButton videoUrl={videos.length > 0 ? videos[0].url : null} />
       </div>
 
       {/* Seek Bar */}

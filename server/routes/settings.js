@@ -12,18 +12,20 @@ router.get('/', async (req, res) => {
     tracksideUrl: config.tracksideUrl,
     ffmpegPath: config.ffmpegPath,
     dataDirValid: valid,
+    activeVideoConfig: config.activeVideoConfig || 0,
   });
 });
 
 router.put('/', (req, res) => {
-  const { dataDir, tracksideUrl, ffmpegPath } = req.body;
+  const { dataDir, tracksideUrl, ffmpegPath, activeVideoConfig } = req.body;
   const updates = {};
   if (dataDir !== undefined) updates.dataDir = dataDir;
   if (tracksideUrl !== undefined) updates.tracksideUrl = tracksideUrl;
   if (ffmpegPath !== undefined) updates.ffmpegPath = ffmpegPath;
+  if (activeVideoConfig !== undefined) updates.activeVideoConfig = activeVideoConfig;
 
   config.save(updates);
-  res.json({ success: true, dataDir: config.dataDir, tracksideUrl: config.tracksideUrl, ffmpegPath: config.ffmpegPath });
+  res.json({ success: true, dataDir: config.dataDir, tracksideUrl: config.tracksideUrl, ffmpegPath: config.ffmpegPath, activeVideoConfig: config.activeVideoConfig });
 });
 
 router.get('/video-config', async (req, res) => {

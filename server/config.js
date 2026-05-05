@@ -26,6 +26,7 @@ function buildConfig() {
     port: parseInt(process.env.PORT, 10) || saved.port || defaults.port,
     tracksideUrl: process.env.TRACKSIDE_URL || saved.tracksideUrl || defaults.tracksideUrl,
     ffmpegPath: process.env.FFMPEG_PATH || saved.ffmpegPath || defaults.ffmpegPath,
+    activeVideoConfig: saved.activeVideoConfig || 0,
   };
 }
 
