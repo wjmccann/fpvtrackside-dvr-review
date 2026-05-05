@@ -5,6 +5,25 @@ const fs = require('fs');
 const config = require('../config');
 const videoServer = require('../services/videoServer');
 
+router.post('/:eventId/:raceId/transcode', async (req, res) => {
+  try {
+    const { eventId, raceId } = req.params;
+    const job = await videoServer.startTranscode(config.dataDir, eventId, raceId);
+    res.json(job);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/:eventId/:raceId/transcode-status', async (req, res) => {
+  try {
+    const { eventId, raceId } = req.params;
+    res.json(videoServer.getTranscodeStatus(eventId, raceId));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/:eventId/:raceId/:filename', async (req, res) => {
   try {
     const { eventId, raceId, filename } = req.params;

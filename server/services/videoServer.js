@@ -154,4 +154,84 @@ async function streamTranscoded(filePath, dataDir, eventId, raceId, filename, re
   });
 }
 
-module.exports = { streamDirect, streamTranscoded, parseRecordInfo };
+// Track active transcode jobs: key = `${eventId}/${raceId}`, value = { status, progress, error }
+const transcodeJobs = new Map();
+
+function transcodeKey(eventId, raceId) {
+  return `${eventId}/${raceId}`;
+}
+
+async function startTranscode(dataDir, eventId, raceId) {
+  const key = transcodeKey(eventId, raceId);
+  const existing = transcodeJobs.get(key);
+  if (existing && existing.status === 'running') return existing;
+
+  const raceDir = path.join(dataDir, eventId, raceId);
+  const entries = await fsPromises.readdir(raceDir);
+  const mkvFiles = entries.filter(f => /\.mkv$/i.test(f));
+
+  if (mkvFiles.length === 0) {
+    const job = { status: 'done', progress: 100, total: 0, completed: 0, error: null };
+    transcodeJobs.set(key, job);
+    return job;
+  }
+
+  const job = { status: 'running', progress: 0, total: mkvFiles.length, completed: 0, error: null };
+  transcodeJobs.set(key, job);
+
+  (async () => {
+    for (const mkv of mkvFiles) {
+      const inputPath = path.join(raceDir, mkv);
+      const outputName = mkv.replace(/\.mkv$/i, '_1080p.mp4');
+      const outputPath = path.join(raceDir, outputName);
+      const tmpPath = outputPath + '.tmp';
+
+      try {
+        await fsPromises.access(outputPath);
+        job.completed++;
+        job.progress = Math.round((job.completed / job.total) * 100);
+        continue;
+      } catch { /* needs transcoding */ }
+
+      try {
+        await new Promise((resolve, reject) => {
+          const proc = spawn(config.ffmpegPath, [
+            '-i', inputPath,
+            '-c:v', 'libx264',
+            '-crf', '23',
+            '-preset', 'fast',
+            '-vf', 'scale=-2:1080',
+            '-c:a', 'aac',
+            '-movflags', '+faststart',
+            '-y',
+            tmpPath,
+          ]);
+          proc.stderr.on('data', () => {});
+          proc.on('close', (code) => code === 0 ? resolve() : reject(new Error(`ffmpeg exited ${code}`)));
+          proc.on('error', reject);
+        });
+        await fsPromises.rename(tmpPath, outputPath);
+      } catch (err) {
+        try { await fsPromises.unlink(tmpPath); } catch { /* ignore */ }
+        job.status = 'error';
+        job.error = `Failed to transcode ${mkv}: ${err.message}`;
+        transcodeJobs.set(key, job);
+        return;
+      }
+
+      job.completed++;
+      job.progress = Math.round((job.completed / job.total) * 100);
+    }
+
+    job.status = 'done';
+    job.progress = 100;
+  })();
+
+  return job;
+}
+
+function getTranscodeStatus(eventId, raceId) {
+  return transcodeJobs.get(transcodeKey(eventId, raceId)) || { status: 'idle', progress: 0, total: 0, completed: 0, error: null };
+}
+
+module.exports = { streamDirect, streamTranscoded, parseRecordInfo, startTranscode, getTranscodeStatus };

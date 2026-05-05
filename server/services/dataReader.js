@@ -84,11 +84,15 @@ async function getVideoFiles(dataDir, eventId, raceId) {
   const entries = await fs.readdir(raceDir);
   const videos = [];
 
-  const videoFiles = entries.filter(f => /\.(mkv|mp4|avi|webm)$/i.test(f));
+  const videoFiles = entries.filter(f => /\.(mkv|mp4|avi|webm)$/i.test(f) && !/_1080p\.mp4$/i.test(f));
+  const transcodedFiles = entries.filter(f => /_1080p\.mp4$/i.test(f));
   const infoFiles = entries.filter(f => f.toLowerCase().endsWith('.recordinfo.xml'));
 
   for (const vf of videoFiles) {
-    const video = { filename: vf, url: `/api/video/${eventId}/${raceId}/${vf}` };
+    const transcodedName = vf.replace(/\.mkv$/i, '_1080p.mp4');
+    const hasTranscoded = transcodedFiles.includes(transcodedName);
+    const serveFilename = hasTranscoded ? transcodedName : vf;
+    const video = { filename: vf, url: `/api/video/${eventId}/${raceId}/${serveFilename}`, transcoded: hasTranscoded };
     const matchingInfo = infoFiles.find(f =>
       f === vf + '.recordinfo.xml' ||
       f === vf.replace(/\.[^.]+$/, '.recordinfo.xml') ||

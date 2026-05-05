@@ -4,8 +4,10 @@ import { api } from '../api';
 import type { Race, Pilot, Round, Event, Detection } from '../api';
 import { useVideoSync } from '../hooks/useVideoSync';
 import type { VideoData } from '../hooks/useVideoSync';
-import VideoPlayer from '../components/VideoPlayer';
+import SharedVideoProvider from '../components/SharedVideoProvider';
+import CanvasVideoPlayer from '../components/CanvasVideoPlayer';
 import VideoCacheButton from '../components/VideoCacheButton';
+import TranscodeButton from '../components/TranscodeButton';
 import SeekBar from '../components/SeekBar';
 import LapTable from '../components/LapTable';
 
@@ -52,7 +54,7 @@ export default function RaceReview() {
       setRounds(rds);
       setVideos(v.map((vf: any) => ({
         ...vf,
-        url: `/api/video/${eventId}/${raceId}/${vf.filename}`,
+        url: vf.url || `/api/video/${eventId}/${raceId}/${vf.filename}`,
       })));
       const activeIdx = (s as any).activeVideoConfig || 0;
       setVideoConfig(vc.length > 0 ? [vc[activeIdx] || vc[0]] : []);
@@ -269,58 +271,59 @@ export default function RaceReview() {
       </div>
 
       {/* Video Grid */}
-      <div className={`grid ${focusedPilotId ? 'grid-cols-1' : gridCols} gap-2 transition-all`}>
-        {pilotChannels.map((pc) => {
-          const pilot = pilots.find(p => p.ID === pc.Pilot);
-          const videoData = videos.length > 0 ? videos[0] : null;
-          const channelName = channelGuidToName[pc.Channel] || pc.Channel;
-          const pilotBounds = channelBoundsMap[channelName] || null;
-          const color = pilotColors[pc.Pilot];
-          const isFocused = focusedPilotId === pc.Pilot;
-          const isDimmed = focusedPilotId !== null && !isFocused;
+      <SharedVideoProvider
+        videoData={videos.length > 0 ? videos[0] : null}
+        onRegister={sync.registerVideo}
+        onUnregister={sync.unregisterVideo}
+      >
+        <div className={`grid ${focusedPilotId ? 'grid-cols-1' : gridCols} gap-2 transition-all`}>
+          {pilotChannels.map((pc) => {
+            const pilot = pilots.find(p => p.ID === pc.Pilot);
+            const channelName = channelGuidToName[pc.Channel] || pc.Channel;
+            const pilotBounds = channelBoundsMap[channelName] || null;
+            const color = pilotColors[pc.Pilot];
+            const isFocused = focusedPilotId === pc.Pilot;
+            const isDimmed = focusedPilotId !== null && !isFocused;
 
-          return (
-            <div
-              key={pc.Pilot}
-              className={`glass overflow-hidden relative transition-all duration-300 ${isDimmed ? 'opacity-30 scale-95 hidden' : ''} ${isFocused ? 'col-span-full' : ''}`}
-              style={{ borderColor: color, borderWidth: '1px' }}
-            >
+            return (
               <div
-                className="absolute top-2 left-2 z-10 text-xs px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm cursor-pointer hover:bg-black/80 transition-colors"
-                style={{ color }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setFocusedPilotId(isFocused ? null : pc.Pilot);
-                }}
-                title={isFocused ? 'Click to show all pilots (Esc)' : 'Click to enlarge'}
+                key={pc.Pilot}
+                className={`glass overflow-hidden relative transition-all duration-300 ${isDimmed ? 'opacity-30 scale-95 hidden' : ''} ${isFocused ? 'col-span-full' : ''}`}
+                style={{ borderColor: color, borderWidth: '1px' }}
               >
-                {pilot?.Name || 'Unknown'} [{channelName}] {isFocused ? '⤡' : '⤢'}
+                <div
+                  className="absolute top-2 left-2 z-10 text-xs px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm cursor-pointer hover:bg-black/80 transition-colors"
+                  style={{ color }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFocusedPilotId(isFocused ? null : pc.Pilot);
+                  }}
+                  title={isFocused ? 'Click to show all pilots (Esc)' : 'Click to enlarge'}
+                >
+                  {pilot?.Name || 'Unknown'} [{channelName}] {isFocused ? '⤡' : '⤢'}
+                </div>
+                <div className={`${isFocused ? 'aspect-[16/7]' : 'aspect-video'} bg-bg-secondary transition-all`}>
+                  {videos.length > 0 ? (
+                    <CanvasVideoPlayer
+                      bounds={pilotBounds}
+                      onClick={togglePlayPause}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-text-muted text-sm">No video</div>
+                  )}
+                </div>
+                <button
+                  onClick={() => addLapFromCurrentPosition(pc.Pilot)}
+                  className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-accent/80 hover:bg-accent text-white text-lg flex items-center justify-center transition-colors"
+                  title={`Add lap for ${pilot?.Name}`}
+                >
+                  +
+                </button>
               </div>
-              <div className={`${isFocused ? 'aspect-[16/7]' : 'aspect-video'} bg-bg-secondary transition-all`}>
-                {videoData ? (
-                  <VideoPlayer
-                    videoData={videoData}
-                    pilotId={pc.Pilot}
-                    bounds={pilotBounds}
-                    onRegister={sync.registerVideo}
-                    onUnregister={sync.unregisterVideo}
-                    onClickVideo={togglePlayPause}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-text-muted text-sm">No video</div>
-                )}
-              </div>
-              <button
-                onClick={() => addLapFromCurrentPosition(pc.Pilot)}
-                className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-accent/80 hover:bg-accent text-white text-lg flex items-center justify-center transition-colors"
-                title={`Add lap for ${pilot?.Name}`}
-              >
-                +
-              </button>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      </SharedVideoProvider>
 
       {/* Playback Controls */}
       <div className="glass px-3 sm:px-4 py-3 flex items-center gap-2 sm:gap-3">
@@ -338,6 +341,15 @@ export default function RaceReview() {
         <span className="text-xs sm:text-sm font-mono text-text-secondary ml-auto">
           {formatTimeDisplay(elapsed)}
         </span>
+        <TranscodeButton
+          eventId={eventId!}
+          raceId={raceId!}
+          onComplete={() => {
+            api.getVideos(eventId!, raceId!).then((v) =>
+              setVideos(v.map((vf: any) => ({ ...vf, url: vf.url || `/api/video/${eventId}/${raceId}/${vf.filename}` })))
+            );
+          }}
+        />
         <VideoCacheButton videoUrl={videos.length > 0 ? videos[0].url : null} />
       </div>
 
