@@ -5,6 +5,7 @@ interface Marker {
   color: string;
   detectionId: string;
   pilotId: string;
+  lapNumber?: number;
 }
 
 interface SeekBarProps {
@@ -16,13 +17,16 @@ interface SeekBarProps {
   markers: Marker[];
   onSeek: (timeMs: number) => void;
   onMarkerClick?: (marker: Marker, event: React.MouseEvent) => void;
+  pilotNames?: Record<string, string>;
+  pilotOrder?: string[];
 }
 
 export default function SeekBar({
-  startTime, endTime, raceStart, raceEnd, currentTime, markers, onSeek, onMarkerClick,
+  startTime, endTime, raceStart, raceEnd, currentTime, markers, onSeek, onMarkerClick, pilotNames, pilotOrder,
 }: SeekBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [hoveredMarker, setHoveredMarker] = useState<{ marker: Marker; x: number; y: number } | null>(null);
 
   const duration = endTime - startTime;
   const pct = duration > 0 ? Math.max(0, Math.min(100, ((currentTime - startTime) / duration) * 100)) : 0;
@@ -36,6 +40,7 @@ export default function SeekBar({
     onSeek(startTime + p * duration);
   }, [startTime, duration, onSeek]);
 
+  // Mouse drag
   useEffect(() => {
     if (!dragging) return;
     const onMove = (e: MouseEvent) => seekFromClientX(e.clientX);
@@ -45,48 +50,131 @@ export default function SeekBar({
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
   }, [dragging, seekFromClientX]);
 
+  // Touch drag
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).dataset.marker) return;
+    e.preventDefault();
+    seekFromClientX(e.touches[0].clientX);
+    setDragging(true);
+  }, [seekFromClientX]);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      seekFromClientX(e.touches[0].clientX);
+    };
+    const onTouchEnd = () => setDragging(false);
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd);
+    return () => { window.removeEventListener('touchmove', onTouchMove); window.removeEventListener('touchend', onTouchEnd); };
+  }, [dragging, seekFromClientX]);
+
+  const lanes = pilotOrder || [...new Set(markers.map(m => m.pilotId))];
+  const laneHeight = 24;
+  const totalHeight = Math.max(lanes.length * laneHeight, 28);
+
   return (
-    <div className="px-4 py-2">
+    <div className="px-2 sm:px-4 py-2 relative">
       <div
         ref={barRef}
-        className="relative h-8 rounded-full bg-surface cursor-pointer group"
+        className="relative bg-surface cursor-pointer group touch-none"
+        style={{ height: `${totalHeight}px` }}
         onMouseDown={(e) => {
           if ((e.target as HTMLElement).dataset.marker) return;
           setDragging(true);
           seekFromClientX(e.clientX);
         }}
+        onTouchStart={handleTouchStart}
       >
         {/* Progress fill */}
         <div
-          className="absolute top-0 left-0 h-full rounded-full bg-accent/30"
+          className="absolute top-0 left-0 h-full bg-accent/20"
           style={{ width: `${pct}%` }}
         />
-        {/* Scrubber */}
+        {/* Playhead */}
         <div
-          className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-accent shadow-lg shadow-accent/50 transition-transform group-hover:scale-125"
+          className="absolute top-0 h-full w-0.5 bg-accent z-10"
           style={{ left: `${pct}%` }}
         />
         {/* Race start/end lines */}
         <div className="absolute top-0 h-full w-0.5 bg-success/60" style={{ left: `${raceStartPct}%` }} />
-        <div className="absolute top-0 h-full w-0.5 bg-accent/60" style={{ left: `${raceEndPct}%` }} />
-        {/* Detection markers */}
-        {markers.map((m, i) => {
-          const mPct = duration > 0 ? ((m.time - startTime) / duration) * 100 : 0;
-          if (mPct < 0 || mPct > 100) return null;
+        <div className="absolute top-0 h-full w-0.5 bg-red-400/60" style={{ left: `${raceEndPct}%` }} />
+
+        {/* Swim lanes */}
+        {lanes.map((pilotId, laneIdx) => {
+          const laneMarkers = markers.filter(m => m.pilotId === pilotId);
+          const top = laneIdx * laneHeight;
           return (
-            <div
-              key={i}
-              data-marker="true"
-              className="absolute top-0 w-0 h-0 border-l-[4px] border-r-[4px] border-b-[8px] border-l-transparent border-r-transparent cursor-pointer hover:scale-150 transition-transform"
-              style={{ left: `${mPct}%`, borderBottomColor: m.color, marginTop: '2px' }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onMarkerClick?.(m, e);
-              }}
-            />
+            <div key={pilotId} className="absolute left-0 right-0" style={{ top: `${top}px`, height: `${laneHeight}px` }}>
+              {laneIdx > 0 && <div className="absolute top-0 left-0 right-0 h-px bg-white/5" />}
+              {laneMarkers.map((m, i) => {
+                const mPct = duration > 0 ? ((m.time - startTime) / duration) * 100 : 0;
+                if (mPct < 0 || mPct > 100) return null;
+                return (
+                  <div
+                    key={i}
+                    data-marker="true"
+                    className="absolute flex flex-col items-center cursor-pointer hover:z-20 transition-transform hover:scale-110 active:scale-125"
+                    style={{ left: `${mPct}%`, top: '1px', transform: 'translateX(-50%)', padding: '0 4px' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMarkerClick?.(m, e);
+                    }}
+                    onMouseEnter={(e) => {
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      setHoveredMarker({ marker: m, x: rect.left + rect.width / 2, y: rect.top });
+                    }}
+                    onMouseLeave={() => setHoveredMarker(null)}
+                  >
+                    <div className="w-px" style={{ height: `${laneHeight - 10}px`, backgroundColor: m.color, opacity: 0.7 }} />
+                    <span
+                      className="text-[9px] sm:text-[10px] font-mono leading-none select-none"
+                      style={{ color: m.color }}
+                    >
+                      {m.lapNumber === 0 ? 'H' : m.lapNumber ?? ''}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           );
         })}
       </div>
+
+      {/* Pilot labels on left */}
+      {pilotNames && lanes.length > 1 && (
+        <div className="absolute left-0 top-2 flex flex-col" style={{ width: '0px' }}>
+          {lanes.map((pilotId, laneIdx) => (
+            <div
+              key={pilotId}
+              className="text-[9px] text-right pr-1 truncate absolute right-full whitespace-nowrap"
+              style={{
+                top: `${laneIdx * laneHeight}px`,
+                height: `${laneHeight}px`,
+                lineHeight: `${laneHeight}px`,
+                color: '#999',
+              }}
+            >
+              {pilotNames[pilotId] || ''}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Hover tooltip (desktop only) */}
+      {hoveredMarker && (
+        <div
+          className="fixed z-50 px-2 py-1 rounded bg-black/90 text-xs text-white whitespace-nowrap pointer-events-none hidden sm:block"
+          style={{ top: hoveredMarker.y - 28, left: hoveredMarker.x, transform: 'translateX(-50%)' }}
+        >
+          <span style={{ color: hoveredMarker.marker.color }}>
+            {pilotNames?.[hoveredMarker.marker.pilotId] || 'Pilot'}
+          </span>
+          {' — '}
+          {hoveredMarker.marker.lapNumber === 0 ? 'Holeshot' : `Lap ${hoveredMarker.marker.lapNumber ?? '?'}`}
+        </div>
+      )}
     </div>
   );
 }

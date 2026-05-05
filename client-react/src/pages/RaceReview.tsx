@@ -198,12 +198,23 @@ export default function RaceReview() {
 
   const detectionMarkers = (race.Detections || [])
     .filter(d => d.Valid)
-    .map(d => ({
-      time: new Date(d.Time.replace(/\//g, '-')).getTime(),
-      color: pilotColors[d.Pilot] || '#ffffff',
-      detectionId: d.ID,
-      pilotId: d.Pilot,
-    }));
+    .map(d => {
+      const lap = (race.Laps || []).find(l => l.Detection === d.ID);
+      return {
+        time: new Date(d.Time.replace(/\//g, '-')).getTime(),
+        color: pilotColors[d.Pilot] || '#ffffff',
+        detectionId: d.ID,
+        pilotId: d.Pilot,
+        lapNumber: lap?.LapNumber,
+      };
+    });
+
+  const pilotNames: Record<string, string> = {};
+  pilotChannels.forEach(pc => {
+    const pilot = pilots.find(p => p.ID === pc.Pilot);
+    pilotNames[pc.Pilot] = pilot?.Name || 'Unknown';
+  });
+  const pilotOrder = pilotChannels.map(pc => pc.Pilot);
 
   const elapsed = currentWallClock - raceStartMs;
   const formatTimeDisplay = (ms: number) => {
@@ -215,7 +226,7 @@ export default function RaceReview() {
     return `${neg ? '-' : ''}${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(millis).padStart(3, '0')}`;
   };
 
-  const gridCols = pilotChannels.length <= 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-2 lg:grid-cols-3';
+  const gridCols = pilotChannels.length <= 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
 
   return (
     <div className="space-y-4">
@@ -280,19 +291,19 @@ export default function RaceReview() {
       </div>
 
       {/* Playback Controls */}
-      <div className="glass px-4 py-3 flex items-center gap-3">
-        <button onClick={() => stepFrame(-1)} className="px-2 py-1 rounded bg-surface-hover text-text-secondary hover:text-text-primary">⏮</button>
-        <button onClick={togglePlayPause} className="px-3 py-1 rounded bg-accent/20 text-accent hover:bg-accent/30 font-bold">
+      <div className="glass px-3 sm:px-4 py-3 flex items-center gap-2 sm:gap-3">
+        <button onClick={() => stepFrame(-1)} className="min-w-[40px] h-10 sm:h-8 flex items-center justify-center rounded bg-surface-hover text-text-secondary hover:text-text-primary active:bg-surface-active">⏮</button>
+        <button onClick={togglePlayPause} className="min-w-[48px] h-10 sm:h-8 flex items-center justify-center rounded bg-accent/20 text-accent hover:bg-accent/30 active:bg-accent/40 font-bold">
           {playing ? '⏸' : '▶'}
         </button>
-        <button onClick={() => stepFrame(1)} className="px-2 py-1 rounded bg-surface-hover text-text-secondary hover:text-text-primary">⏭</button>
+        <button onClick={() => stepFrame(1)} className="min-w-[40px] h-10 sm:h-8 flex items-center justify-center rounded bg-surface-hover text-text-secondary hover:text-text-primary active:bg-surface-active">⏭</button>
         <button
           onClick={toggleSlow}
-          className={`px-2 py-1 rounded text-xs ${slowMotion ? 'bg-accent/30 text-accent' : 'bg-surface-hover text-text-secondary'}`}
+          className={`min-w-[40px] h-10 sm:h-8 flex items-center justify-center rounded text-xs ${slowMotion ? 'bg-accent/30 text-accent' : 'bg-surface-hover text-text-secondary'} active:bg-surface-active`}
         >
           0.25x
         </button>
-        <span className="text-sm font-mono text-text-secondary ml-2">
+        <span className="text-xs sm:text-sm font-mono text-text-secondary ml-auto">
           {formatTimeDisplay(elapsed)}
         </span>
       </div>
@@ -310,6 +321,8 @@ export default function RaceReview() {
           handleSeek(m.time);
           setActionPanel({ detectionId: m.detectionId, x: e.clientX, y: e.clientY });
         }}
+        pilotNames={pilotNames}
+        pilotOrder={pilotOrder}
       />
 
       {/* Detection Action Panel */}
@@ -364,7 +377,7 @@ export default function RaceReview() {
       })()}
 
       {/* Quick Add Bar */}
-      <div className="glass px-4 py-2 flex items-center gap-2 flex-wrap">
+      <div className="glass px-3 sm:px-4 py-2 sm:py-2 flex items-center gap-2 flex-wrap">
         <span className="text-xs text-text-muted">Add Lap:</span>
         {pilotChannels.map((pc, i) => {
           const pilot = pilots.find(p => p.ID === pc.Pilot);
@@ -372,7 +385,7 @@ export default function RaceReview() {
             <button
               key={pc.Pilot}
               onClick={() => addLapFromCurrentPosition(pc.Pilot)}
-              className="text-xs px-2 py-1 rounded border transition-colors hover:bg-surface-hover"
+              className="text-xs px-3 py-2 sm:px-2 sm:py-1 rounded border transition-colors hover:bg-surface-hover active:bg-surface-active"
               style={{ borderColor: pilotColors[pc.Pilot], color: pilotColors[pc.Pilot] }}
             >
               <span className="opacity-50 mr-1">{i + 1}</span>{pilot?.Name || 'Unknown'}

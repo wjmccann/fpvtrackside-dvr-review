@@ -73,21 +73,22 @@ export default function LapTable({
         const currentDetId = currentDetectionIds.get(pc.Pilot);
 
         return (
-          <div key={pc.Pilot} className="glass p-4">
+          <div key={pc.Pilot} className="glass p-3 sm:p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="flex items-center gap-2 text-sm font-medium">
-                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                 {pilotName}
               </h3>
               <button
                 onClick={() => onAddLap(pc.Pilot)}
-                className="text-xs px-2 py-1 rounded bg-surface-hover text-text-secondary hover:text-text-primary transition-colors"
+                className="text-xs px-3 py-1.5 sm:px-2 sm:py-1 rounded bg-surface-hover text-text-secondary hover:text-text-primary active:bg-surface-active transition-colors"
               >
                 + Add Lap
               </button>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-text-muted text-xs uppercase">
@@ -154,6 +155,60 @@ export default function LapTable({
                   })}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile card layout */}
+            <div className="sm:hidden space-y-2">
+              {pilotLaps.map((lap) => {
+                const det = pilotDets.find(d => d.ID === lap.Detection);
+                if (!det) return null;
+
+                const detTimeMs = new Date(det.Time.replace(/\//g, '-')).getTime();
+                const elapsed = detTimeMs - raceStartMs;
+                const isOB = det.Valid && lap.LapNumber > 0 && overallBest !== null && Math.abs(lap.LengthSeconds! - overallBest) < 0.001;
+                const isPB = det.Valid && lap.LapNumber > 0 && personalBest !== null && Math.abs(lap.LengthSeconds! - personalBest) < 0.001 && !isOB;
+                const isCurrent = det.ID === currentDetId;
+
+                return (
+                  <div
+                    key={det.ID}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border/20 ${
+                      !det.Valid ? 'opacity-40' : ''
+                    } ${isCurrent ? 'bg-accent/10' : 'bg-surface/50'} ${
+                      isOB ? 'text-gold' : isPB ? 'text-success' : ''
+                    }`}
+                    onClick={() => onDetectionClick(det)}
+                  >
+                    <span className="text-sm font-mono w-8 text-center flex-shrink-0">
+                      {lap.LapNumber === 0 ? 'HS' : lap.LapNumber}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm font-mono ${!det.Valid ? 'line-through' : ''}`}>
+                        {lap.LengthSeconds!.toFixed(3)}s
+                      </div>
+                      <div className="text-[11px] text-text-muted">
+                        {formatTime(elapsed)}
+                        {det.TimingSystemType === 'Manual' && (
+                          <span className="ml-1 px-1 rounded bg-accent/20 text-accent">M</span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        det.Valid ? onInvalidate(det.ID) : onValidate(det.ID);
+                      }}
+                      className={`min-w-[36px] h-9 flex items-center justify-center rounded text-sm ${
+                        det.Valid
+                          ? 'bg-red-500/20 text-red-400 active:bg-red-500/30'
+                          : 'bg-green-500/20 text-green-400 active:bg-green-500/30'
+                      }`}
+                    >
+                      {det.Valid ? '✗' : '✓'}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         );
