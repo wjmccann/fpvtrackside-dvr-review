@@ -1,0 +1,9 @@
+node_modules/
+client-react/node_modules/
+client-react/dist/
+server/dvr-review.db
+server/dvr-review.db-shm
+server/dvr-review.db-wal
+server/settings.json
+*.bak.*
+.env
