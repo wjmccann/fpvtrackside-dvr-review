@@ -73,13 +73,31 @@ export default function SeekBar({
   const lanes = pilotOrder || [...new Set(markers.map(m => m.pilotId))];
   const laneHeight = 24;
   const totalHeight = Math.max(lanes.length * laneHeight, 28);
+  const showLabels = !!(pilotNames && lanes.length > 1);
 
   return (
-    <div className="px-2 sm:px-4 py-2 relative">
-      <div
-        ref={barRef}
-        className="relative bg-surface cursor-pointer group touch-none"
-        style={{ height: `${totalHeight}px` }}
+    <div className="px-2 sm:px-4 py-2">
+      <div className={`flex items-stretch gap-2 ${showLabels ? '' : ''}`}>
+        {/* Pilot labels column */}
+        {showLabels && (
+          <div className="flex flex-col flex-shrink-0 justify-center" style={{ width: '60px' }}>
+            {lanes.map((pilotId) => (
+              <div
+                key={pilotId}
+                className="text-[10px] sm:text-[11px] text-text-muted truncate text-right pr-1"
+                style={{ height: `${laneHeight}px`, lineHeight: `${laneHeight}px` }}
+                title={pilotNames[pilotId] || ''}
+              >
+                {pilotNames[pilotId] || ''}
+              </div>
+            ))}
+          </div>
+        )}
+        {/* Timeline */}
+        <div
+          ref={barRef}
+          className="relative bg-surface cursor-pointer group touch-none flex-1 min-w-0"
+          style={{ height: `${totalHeight}px` }}
         onMouseDown={(e) => {
           if ((e.target as HTMLElement).dataset.marker) return;
           setDragging(true);
@@ -142,25 +160,7 @@ export default function SeekBar({
         })}
       </div>
 
-      {/* Pilot labels on left */}
-      {pilotNames && lanes.length > 1 && (
-        <div className="absolute left-0 top-2 flex flex-col" style={{ width: '0px' }}>
-          {lanes.map((pilotId, laneIdx) => (
-            <div
-              key={pilotId}
-              className="text-[9px] text-right pr-1 truncate absolute right-full whitespace-nowrap"
-              style={{
-                top: `${laneIdx * laneHeight}px`,
-                height: `${laneHeight}px`,
-                lineHeight: `${laneHeight}px`,
-                color: '#999',
-              }}
-            >
-              {pilotNames[pilotId] || ''}
-            </div>
-          ))}
-        </div>
-      )}
+      </div>
 
       {/* Hover tooltip (desktop only) */}
       {hoveredMarker && (
