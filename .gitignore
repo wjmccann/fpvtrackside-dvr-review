@@ -7,3 +7,4 @@ server/dvr-review.db-wal
 server/settings.json
 *.bak.*
 .env
+dist/

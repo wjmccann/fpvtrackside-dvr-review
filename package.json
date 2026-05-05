@@ -2,9 +2,21 @@
   "name": "fpvtrackside-dvr-review",
   "version": "1.0.0",
   "description": "Race DVR Review companion app for FPV Trackside",
+  "bin": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "node --watch server/index.js"
+    "dev": "node --watch server/index.js",
+    "build:client": "cd client-react && npm install && npm run build",
+    "build:exe": "node scripts/build-exe.js"
+  },
+  "pkg": {
+    "assets": [
+      "client-react/dist/**/*"
+    ],
+    "targets": [
+      "node22-win-x64"
+    ],
+    "outputPath": "dist"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -13,5 +25,8 @@
     "express": "^4.18.0",
     "jsonwebtoken": "^9.0.3",
     "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^6.0.0"
   }
 }

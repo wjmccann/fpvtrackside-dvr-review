@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 
-const CONFIG_FILE = path.join(__dirname, 'settings.json');
+const CONFIG_FILE = path.join(process.pkg ? path.dirname(process.execPath) : __dirname, 'settings.json');
 
 const defaults = {
   dataDir: path.join('C:', 'Users', 'willi', 'AppData', 'Local', 'FPVTrackside', 'events'),

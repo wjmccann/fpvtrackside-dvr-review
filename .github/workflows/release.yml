@@ -1,0 +1,37 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install server dependencies
+        run: npm install
+
+      - name: Build client
+        run: npm run build:client
+
+      - name: Package executable
+        run: npx @yao-pkg/pkg . --compress GZip
+
+      - name: Copy native addon
+        run: copy node_modules\better-sqlite3\build\Release\better_sqlite3.node dist\
+
+      - name: Create release archive
+        run: Compress-Archive -Path dist\* -DestinationPath dist\fpvtrackside-dvr-review-windows-x64.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/fpvtrackside-dvr-review-windows-x64.zip
+          generate_release_notes: true

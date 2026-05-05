@@ -1,7 +1,12 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-const db = new Database(path.join(__dirname, 'dvr-review.db'));
+const dbPath = path.join(process.pkg ? path.dirname(process.execPath) : __dirname, 'dvr-review.db');
+const nativeBinding = process.pkg
+  ? path.join(path.dirname(process.execPath), 'better_sqlite3.node')
+  : undefined;
+
+const db = new Database(dbPath, nativeBinding ? { nativeBinding } : undefined);
 
 db.pragma('journal_mode = WAL');
 
