@@ -24,6 +24,7 @@ export default function RaceReview() {
   const [currentDetectionIds] = useState<Map<string, string | null>>(new Map());
   const [actionPanel, setActionPanel] = useState<{ detectionId: string; x: number; y: number } | null>(null);
   const [focusedPilotId, setFocusedPilotId] = useState<string | null>(null);
+  const [videoConfig, setVideoConfig] = useState<any[]>([]);
 
   const raceStartMs = race ? new Date(race.Start!.replace(/\//g, '-')).getTime() : 0;
   const raceEndMs = race
@@ -41,7 +42,8 @@ export default function RaceReview() {
       api.getPilots(eventId),
       api.getRounds(eventId),
       api.getVideos(eventId, raceId),
-    ]).then(([r, e, p, rds, v]) => {
+      api.getVideoConfig().catch(() => []),
+    ]).then(([r, e, p, rds, v, vc]) => {
       setRace(r);
       setEvent(e);
       setPilots(p);
@@ -50,6 +52,7 @@ export default function RaceReview() {
         ...vf,
         url: `/api/video/${eventId}/${raceId}/${vf.filename}`,
       })));
+      setVideoConfig(vc);
     });
   }, [eventId, raceId]);
 
@@ -226,6 +229,15 @@ export default function RaceReview() {
     return `${neg ? '-' : ''}${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(millis).padStart(3, '0')}`;
   };
 
+  const channelBoundsMap: Record<string, { X: number; Y: number; Width: number; Height: number }> = {};
+  for (const vc of videoConfig) {
+    for (const b of vc.bounds || []) {
+      if (b.Channel && b.Channel !== 'None') {
+        channelBoundsMap[b.Channel] = b.RelativeSourceBounds;
+      }
+    }
+  }
+
   const gridCols = pilotChannels.length <= 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
 
   return (
@@ -243,6 +255,7 @@ export default function RaceReview() {
         {pilotChannels.map((pc) => {
           const pilot = pilots.find(p => p.ID === pc.Pilot);
           const videoData = videos.length > 0 ? videos[0] : null;
+          const pilotBounds = channelBoundsMap[pc.Channel] || null;
           const color = pilotColors[pc.Pilot];
           const isFocused = focusedPilotId === pc.Pilot;
           const isDimmed = focusedPilotId !== null && !isFocused;
@@ -269,7 +282,7 @@ export default function RaceReview() {
                   <VideoPlayer
                     videoData={videoData}
                     pilotId={pc.Pilot}
-                    bounds={null}
+                    bounds={pilotBounds}
                     onRegister={sync.registerVideo}
                     onUnregister={sync.unregisterVideo}
                     onClickVideo={togglePlayPause}

@@ -27,26 +27,32 @@ export default function VideoPlayer({ videoData, pilotId, bounds, onRegister, on
     return () => onUnregister(pilotId);
   }, [pilotId, videoData, onRegister, onUnregister]);
 
+  const wrapperStyle: React.CSSProperties = {};
   const style: React.CSSProperties = {};
   if (bounds && (bounds.Width < 1 || bounds.Height < 1)) {
-    const pctX = bounds.X * 100;
-    const pctY = bounds.Y * 100;
-    const pctW = bounds.Width * 100;
-    const pctH = bounds.Height * 100;
+    const scaleX = 1 / bounds.Width;
+    const scaleY = 1 / bounds.Height;
+    const translateX = -bounds.X * scaleX * 100;
+    const translateY = -bounds.Y * scaleY * 100;
+    wrapperStyle.overflow = 'hidden';
+    style.width = `${scaleX * 100}%`;
+    style.height = `${scaleY * 100}%`;
     style.objectFit = 'cover';
-    style.objectPosition = `${pctX + pctW / 2}% ${pctY + pctH / 2}%`;
-    style.clipPath = `inset(${pctY}% ${100 - pctX - pctW}% ${100 - pctY - pctH}% ${pctX}%)`;
+    style.marginLeft = `${translateX}%`;
+    style.marginTop = `${translateY}%`;
   }
 
   return (
-    <video
-      ref={videoRef}
-      src={videoData.url}
-      muted
-      preload="metadata"
-      className="w-full h-full object-contain cursor-pointer"
-      style={style}
-      onClick={onClickVideo}
-    />
+    <div className="w-full h-full" style={wrapperStyle}>
+      <video
+        ref={videoRef}
+        src={videoData.url}
+        muted
+        preload="metadata"
+        className={`${bounds && bounds.Width < 1 ? '' : 'w-full h-full object-contain'} cursor-pointer`}
+        style={style}
+        onClick={onClickVideo}
+      />
+    </div>
   );
 }

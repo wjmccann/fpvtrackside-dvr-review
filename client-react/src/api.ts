@@ -102,6 +102,7 @@ export const api = {
   correctLapTime: (eventId: string, raceId: string, detectionId: string, time: string) =>
     client.put(`/events/${eventId}/races/${raceId}/laps/${detectionId}`, { time }).then(r => r.data),
 
+  getVideoConfig: () => client.get('/settings/video-config').then(r => r.data),
   getSettings: () => client.get('/settings').then(r => r.data),
   updateSettings: (settings: unknown) => client.put('/settings', settings).then(r => r.data),
 
