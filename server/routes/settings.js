@@ -4,11 +4,14 @@ const path = require('path');
 const router = express.Router();
 const config = require('../config');
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
+  const { existsSync } = require('fs');
+  const valid = existsSync(config.dataDir);
   res.json({
     dataDir: config.dataDir,
     tracksideUrl: config.tracksideUrl,
     ffmpegPath: config.ffmpegPath,
+    dataDirValid: valid,
   });
 });
 

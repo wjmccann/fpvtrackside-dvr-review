@@ -10,12 +10,23 @@ export default function EventBrowser() {
   const [pilots, setPilots] = useState<Pilot[]>([]);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [loading, setLoading] = useState(true);
+  const [setupNeeded, setSetupNeeded] = useState(false);
+  const [setupDir, setSetupDir] = useState('');
+  const [setupSaving, setSetupSaving] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.listEvents().then((evts) => {
-      setEvents(evts);
-      setLoading(false);
+    api.getSettings().then((s: any) => {
+      if (!s.dataDirValid) {
+        setSetupDir(s.dataDir);
+        setSetupNeeded(true);
+        setLoading(false);
+      } else {
+        api.listEvents().then((evts) => {
+          setEvents(evts);
+          setLoading(false);
+        });
+      }
     });
   }, []);
 
@@ -38,6 +49,55 @@ export default function EventBrowser() {
     setSelectedEvent(null);
     setRaces([]);
   };
+
+  const handleSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSetupSaving(true);
+    await api.updateSettings({ dataDir: setupDir });
+    const s = await api.getSettings() as any;
+    if (s.dataDirValid) {
+      setSetupNeeded(false);
+      setLoading(true);
+      const evts = await api.listEvents();
+      setEvents(evts);
+      setLoading(false);
+    } else {
+      setSetupSaving(false);
+    }
+  };
+
+  if (setupNeeded) {
+    return (
+      <div className="max-w-lg mx-auto mt-12">
+        <h2 className="text-2xl font-semibold mb-4">Welcome to FPV Trackside DVR Review</h2>
+        <p className="text-text-secondary mb-6">
+          Please set the path to your FPV Trackside events directory to get started.
+        </p>
+        <form onSubmit={handleSetup} className="glass p-6 space-y-4">
+          <div>
+            <label className="block text-sm text-text-secondary mb-1">Events Directory</label>
+            <input
+              type="text"
+              value={setupDir}
+              onChange={(e) => setSetupDir(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-bg-secondary border border-border text-text-primary focus:outline-none focus:border-accent transition-colors"
+              placeholder="C:\\Users\\You\\AppData\\Local\\FPVTrackside\\events"
+            />
+            <p className="text-xs text-text-muted mt-1">
+              This is typically located at %LOCALAPPDATA%\FPVTrackside\events
+            </p>
+          </div>
+          <button
+            type="submit"
+            disabled={setupSaving}
+            className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-dark text-white font-medium transition-colors disabled:opacity-50"
+          >
+            {setupSaving ? 'Checking...' : 'Continue'}
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

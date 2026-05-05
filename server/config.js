@@ -4,7 +4,7 @@ const fs = require('fs');
 const CONFIG_FILE = path.join(process.pkg ? path.dirname(process.execPath) : __dirname, 'settings.json');
 
 const defaults = {
-  dataDir: path.join('C:', 'Users', 'willi', 'AppData', 'Local', 'FPVTrackside', 'events'),
+  dataDir: path.join(process.env.LOCALAPPDATA || path.join(require('os').homedir(), 'AppData', 'Local'), 'FPVTrackside', 'events'),
   port: 3000,
   tracksideUrl: 'http://localhost:8080',
   ffmpegPath: 'ffmpeg',
